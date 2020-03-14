@@ -20,7 +20,11 @@ func findTestFiles() []string {
 		if testDir == path {
 			return nil
 		}
-		files = append(files, filepath.Base(path))
+		absFilePath, err := filepath.Abs(path)
+		if err != nil {
+			panic(err)
+		}
+		files = append(files, absFilePath)
 		return nil
 	}); err != nil {
 		panic(err)
@@ -29,7 +33,34 @@ func findTestFiles() []string {
 
 }
 
-func TestBinary(t *testing.T) {
+func checkTestProgAgainst(expected []string, output []byte, t *testing.T) {
+	stdout := bytes.NewBuffer(output)
+	scanner := bufio.NewScanner(stdout)
+
+	var failed bool
+	for scanner.Scan() {
+		var ok bool
+		line := scanner.Text()
+		for _, f := range expected {
+			if line == filepath.Base(f) || line == "EOF" {
+				ok = true
+			}
+		}
+		if !ok {
+			t.Error("error, output of test program doesn't match testdata files. Following line not in directory", line)
+			failed = true
+			continue
+		}
+		t.Log("correctly found file name: ", line)
+	}
+	if failed {
+		for _, f := range expected {
+			t.Log("looked for: ", f)
+		}
+	}
+}
+
+func TestSingleArg(t *testing.T) {
 	var err error
 
 	testFiles := findTestFiles()
@@ -55,29 +86,36 @@ func TestBinary(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	stdout := bytes.NewBuffer(output)
-	scanner := bufio.NewScanner(stdout)
+	checkTestProgAgainst(testFiles, output, t)
+}
 
-	var failed bool
-	for scanner.Scan() {
-		var ok bool
-		line := scanner.Text()
-		for _, f := range testFiles {
-			if line == f || line == "EOF" {
-				ok = true
-			}
-		}
-		if !ok {
-			t.Error("error, output of test program doesn't match testdata files. Following line not in directory", line)
-			failed = true
-			continue
-		}
-		t.Log("correctly found file name: ", line)
+func TestMultiArg(t *testing.T) {
+	var err error
+	testFiles := findTestFiles()
+	allArgs := []string{"run", ".."}
+	allArgs = append(allArgs, testFiles...)
+	cmd := exec.Command("go", allArgs...)
+	cmd.Dir, err = filepath.Abs("./testdata/")
+	if err != nil {
+		panic(err)
 	}
-	if failed {
-		for _, f := range testFiles {
-			t.Log("looked for: ", f)
-		}
+	err = cmd.Run()
+	if err != nil {
+		panic(err)
 	}
+	cmd = exec.Command("go", "run", ".")
+	cmd.Dir, err = filepath.Abs("./testdata/")
+	if err != nil {
+		panic(err)
+	}
+	if err != nil {
+		panic(err)
+	}
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		panic(err)
+	}
+
+	checkTestProgAgainst(testFiles, output, t)
 
 }
