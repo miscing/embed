@@ -51,7 +51,7 @@ func findPackageName() error {
 				return err
 			}
 			s := bufio.NewScanner(f)
-			re := regexp.MustCompile("^package ([[:alpha:]]*$)")
+			re := regexp.MustCompile("^package ([[:alnum:]]*$)")
 			for i := 0; s.Scan(); i++ {
 				if i >= 10 {
 					break
