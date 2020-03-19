@@ -154,7 +154,7 @@ func makeSource(rawBuf *bytes.Buffer) *bytes.Buffer {
 	for _, b := range raw {
 		fmt.Fprintf(buf, "%#v, ", b)
 	}
-	_, err = buf.WriteString("}")
+	_, err = buf.WriteString(endTemplate)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -163,7 +163,8 @@ func makeSource(rawBuf *bytes.Buffer) *bytes.Buffer {
 
 func main() {
 	// set flags:
-	flag.StringVar(&variableName, "vname", "bindata", "sets generated source files data holding variable name")
+	flag.Bool("0", true, "embed [path0] ... [pathi] // generates a file {fname} with a variable []byte named {vname} for current directory go project\nfor single files it imply makes a bit copy , for multiple files embed first packs them into a tar archive.\nFor a http.FileSystem implementation look at other software\nused to package binary, image or config files into application binary")
+	flag.StringVar(&variableName, "vname", "bindata", "sets generated source files data holding variable name, def bindata")
 	flag.StringVar(&packageName, "pname", "", "sets generated source files package name instead of parsing from current directory")
 	flag.StringVar(&fileName, "fname", "bindata.go", "sets generated source files name, default is bindata.go, use this to avoid overwritting")
 	flag.Parse()
