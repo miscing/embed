@@ -33,6 +33,9 @@ func findPackageName() error {
 		return err
 	}
 	if err := filepath.Walk(absLoc, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
 		if path == absLoc { //skip root directory
 			return nil
 		}
@@ -159,9 +162,9 @@ func makeSource(rawBuf *bytes.Buffer) *bytes.Buffer {
 
 func main() {
 	// set flags:
-	flag.StringVar(&variableName, "-vname", "bindata", "sets generated source files data holding variable name")
-	flag.StringVar(&packageName, "-pname", "", "sets generated source files package name instead of parsing from current directory")
-	flag.StringVar(&fileName, "-fname", "bindata.go", "sets generated source files name, default is bindata.go, use this to avoid overwritting")
+	flag.StringVar(&variableName, "vname", "bindata", "sets generated source files data holding variable name")
+	flag.StringVar(&packageName, "pname", "", "sets generated source files package name instead of parsing from current directory")
+	flag.StringVar(&fileName, "fname", "bindata.go", "sets generated source files name, default is bindata.go, use this to avoid overwritting")
 	flag.Parse()
 	paths := flag.Args()
 
