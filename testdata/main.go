@@ -10,6 +10,7 @@ import (
 // for testing puposes
 
 func main() {
+
 	r := tar.NewReader(bytes.NewBuffer(bindata))
 	for {
 		h, err := r.Next()

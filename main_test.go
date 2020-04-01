@@ -62,6 +62,7 @@ func checkTestProgAgainst(expected []string, output []byte, t *testing.T) {
 
 func TestSingleArg(t *testing.T) {
 	var err error
+	os.Remove("./testdata/bindata.go")
 
 	testFiles := findTestFiles()
 
@@ -74,14 +75,13 @@ func TestSingleArg(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
+
 	cmd = exec.Command("go", "run", ".")
 	cmd.Dir, err = filepath.Abs("./testdata/")
 	if err != nil {
 		panic(err)
 	}
-	if err != nil {
-		panic(err)
-	}
+
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		panic(err)
@@ -91,6 +91,8 @@ func TestSingleArg(t *testing.T) {
 
 func TestMultiArg(t *testing.T) {
 	var err error
+	os.Remove("./testdata/bindata.go")
+
 	testFiles := findTestFiles()
 	allArgs := []string{"run", ".."}
 	allArgs = append(allArgs, testFiles...)
@@ -108,6 +110,48 @@ func TestMultiArg(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		panic(err)
+	}
+
+	checkTestProgAgainst(testFiles, output, t)
+
+}
+
+func TestOneTarInput(t *testing.T) {
+	var err error
+
+	os.Remove("./testdata/bindata.go")
+
+	cmd := exec.Command("go", "run", ".", "../target/")
+	cmd.Dir, err = filepath.Abs("./testdata/readypacked/")
+	if err != nil {
+		panic(err)
+	}
+	err = cmd.Run()
+	if err != nil {
+		panic(err)
+	}
+
+	cmd = exec.Command("go", "run", "..", "./readypacked/archive.tar")
+	cmd.Dir, err = filepath.Abs("./testdata/")
+	if err != nil {
+		panic(err)
+	}
+	err = cmd.Run()
+	if err != nil {
+		panic(err)
+	}
+	// output, err := cmd.CombinedOutput()
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// t.Error(string(output))
+
+	cmd = exec.Command("go", "run", ".")
+	cmd.Dir, err = filepath.Abs("./testdata/")
 	if err != nil {
 		panic(err)
 	}
@@ -115,6 +159,8 @@ func TestMultiArg(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
+
+	testFiles := findTestFiles()
 
 	checkTestProgAgainst(testFiles, output, t)
 
