@@ -85,13 +85,17 @@ func findPackageName() error {
 	return nil
 }
 
-func makeTar(paths []string) *bytes.Buffer {
-	var files []*os.File
-	buf := new(bytes.Buffer)
+func openFiles(paths []string) (files []*os.File) {
 	for _, p := range paths {
 		files = append(files, parsePath(p)...)
 	}
+	return
+}
+
+func makeTar(files []*os.File) *bytes.Buffer {
+	buf := new(bytes.Buffer)
 	if len(files) == 1 {
+		log.Println("only 1 file found, skipping tar archiving")
 		// skip tar process if only one file
 		_, err := io.Copy(buf, files[0])
 		if err != nil {
@@ -182,7 +186,8 @@ func main() {
 		}
 	}
 
-	tarBuf := makeTar(paths)
+	files := openFiles(paths)
+	tarBuf := makeTar(files)
 	sourceFileBuff := makeSource(tarBuf)
 	file, err := os.OpenFile(fileName, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0664)
 	defer file.Close()
