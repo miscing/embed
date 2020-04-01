@@ -165,3 +165,16 @@ func TestOneTarInput(t *testing.T) {
 	checkTestProgAgainst(testFiles, output, t)
 
 }
+
+func TestMain(m *testing.M) {
+
+	r := m.Run()
+	if err := os.Remove("./testdata/bindata.go"); err != nil {
+		panic(err)
+	}
+	if err := os.Remove("./testdata/readypacked/archive.tar"); err != nil {
+		panic(err)
+	}
+
+	os.Exit(r)
+}
