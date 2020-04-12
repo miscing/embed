@@ -147,7 +147,10 @@ func makeSource(rawBuf *bytes.Buffer) *bytes.Buffer {
 
 func main() {
 	// set flags:
-	flag.Bool("0", true, "embed [path0] ... [pathi] // generates a file {fname} with a variable []byte named {vname} for current directory go project\nfor single files it imply makes a bit copy , for multiple files embed first packs them into a tar archive.\nFor a http.FileSystem implementation look at other software\nused to package binary, image or config files into application binary")
+	flag.Usage = func() {
+		fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s [options] [path0] ... [pathi]\nGenerates a go source file for golang package in current directory containing all files found in given paths. Accessed through 'func bindata() []byte'. If multiple paths or path is a directory files will be packed into a tar archive. Concurrent safe.\n\nOptions:\n", os.Args[0])
+		flag.PrintDefaults()
+	}
 	flag.StringVar(&variableName, "vname", "bindata", "sets generated source files data holding variable name, def bindata")
 	flag.StringVar(&packageName, "pname", "", "sets generated source files package name instead of parsing from current directory")
 	flag.StringVar(&fileName, "fname", "bindata.go", "sets generated source files name, default is bindata.go, use this to avoid overwritting")
