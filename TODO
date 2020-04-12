@@ -1,3 +1,0 @@
-use go/parser to get package name using PackageClauseOnly option
-add option to embed multiple locations into an array of bindata
-wrap created object in a function for over control scope

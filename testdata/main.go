@@ -3,32 +3,43 @@ package main
 import (
 	"archive/tar"
 	"bytes"
-	"fmt"
+	"encoding/json"
 	"io"
+	"io/ioutil"
+	"os"
 )
 
 // for testing puposes
 
+type file struct {
+	Name    string
+	Content string
+}
+
 func main() {
 
-	r := tar.NewReader(bytes.NewBuffer(bindata))
+	r := tar.NewReader(bytes.NewBuffer(bindata()))
+
+	enc := json.NewEncoder(os.Stdout)
+
 	for {
 		h, err := r.Next()
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-		// if _, err := io.Copy(os.Stdout, r); err != nil {
-		// 	log.Fatal(err)
-		// }
 		if err == io.EOF {
-			fmt.Println("done")
 			break
 		}
 		if err != nil {
-			fmt.Println(err)
-			return
+			panic(err)
 		}
-		fmt.Println(h.Name)
+		f := new(file)
+		f.Name = h.Name
+		byteCont, err := ioutil.ReadAll(r)
+		if err != nil {
+			panic(err)
+		}
+		f.Content = string(byteCont)
+		err = enc.Encode(f)
+		if err != nil {
+			panic(err)
+		}
 	}
 }
