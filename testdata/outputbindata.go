@@ -19,7 +19,6 @@ type file struct {
 func main() {
 
 	r := tar.NewReader(bytes.NewBuffer(bindata()))
-
 	enc := json.NewEncoder(os.Stdout)
 
 	for {

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"testing"
 )
 
@@ -18,6 +20,7 @@ const (
 
 var (
 	testFiles []*file
+	ignore    string = "// +build ignore\n"
 )
 
 type file struct {
@@ -59,6 +62,7 @@ func checkTestProgAgainst(t *testing.T) {
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		t.Error(cmd.String())
 		panic(err)
 	}
 
@@ -98,7 +102,6 @@ Beg:
 
 func TestSingleArg(t *testing.T) {
 	var err error
-	os.Remove("./testdata/bindata.go")
 
 	cmd := exec.Command("go", "run", "..", "./target/")
 	cmd.Dir, err = filepath.Abs("./testdata/")
@@ -111,11 +114,11 @@ func TestSingleArg(t *testing.T) {
 	}
 
 	checkTestProgAgainst(t)
+	os.Remove("./testdata/bindata.go")
 }
 
 func TestMultiArg(t *testing.T) {
 	var err error
-	os.Remove("./testdata/bindata.go")
 
 	testFiles := findTestFiles()
 	allArgs := []string{"run", ".."}
@@ -138,12 +141,11 @@ func TestMultiArg(t *testing.T) {
 	}
 
 	checkTestProgAgainst(t)
+	os.Remove("./testdata/bindata.go")
 }
 
 func TestOneTarInput(t *testing.T) {
 	var err error
-
-	os.Remove("./testdata/bindata.go")
 
 	cmd := exec.Command("go", "run", ".", "../target/")
 	cmd.Dir, err = filepath.Abs("./testdata/readypacked/")
@@ -166,6 +168,89 @@ func TestOneTarInput(t *testing.T) {
 	}
 
 	checkTestProgAgainst(t)
+	os.Remove("./testdata/bindata.go")
+}
+
+func TestFname(t *testing.T) {
+	// test fname option
+	var err error
+	var outputName string = "fname.go"
+
+	cmd := exec.Command("go", "run", "..", "-fname", outputName, "./target/")
+	cmd.Dir, err = filepath.Abs("./testdata/")
+	if err != nil {
+		panic(err)
+	}
+	err = cmd.Run()
+	if err != nil {
+		panic(err)
+	}
+
+	fi, err := os.Stat("./testdata/" + outputName)
+	if os.IsNotExist(err) {
+		t.Error("fname test failed to produce output")
+		return
+	} else if err != nil {
+		panic(err)
+	}
+
+	if fi.Name() != outputName {
+		t.Error("fname file name not correct.\nExpected: ", outputName, "\nGot: ", fi.Name())
+	}
+
+	os.Remove("./testdata/" + outputName)
+}
+
+func TestName(t *testing.T) {
+	// test fname option
+	var err error
+	var regexString string = "^func %s()"
+	var outputName string = "name"
+
+	cmd := exec.Command("go", "run", "..", "-name", outputName, "./target/")
+	cmd.Dir, err = filepath.Abs("./testdata/")
+	if err != nil {
+		panic(err)
+	}
+	err = cmd.Run()
+	if err != nil {
+		panic(err)
+	}
+
+	fi, err := os.Stat("./testdata/" + outputName + ".go")
+	if os.IsNotExist(err) {
+		t.Error("fname test failed to produce output")
+		return
+	} else if err != nil {
+		panic(err)
+	}
+
+	if fi.Name() != outputName+".go" {
+		t.Error("name file name not correct.\nExpected: ", outputName, "\nGot: ", fi.Name())
+	}
+
+	a := fmt.Sprintf(regexString, outputName)
+	r := regexp.MustCompile(a)
+
+	f, err := os.Open("./testdata/" + outputName + ".go")
+	if err != nil {
+		panic(err)
+	}
+	s := bufio.NewScanner(f)
+
+	var found bool
+	for s.Scan() {
+		if !r.MatchString(s.Text()) {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("content does not have a func called: ", outputName)
+	}
+
+	os.Remove("./testdata/" + outputName)
+
 }
 
 func TestMain(m *testing.M) {
@@ -174,12 +259,8 @@ func TestMain(m *testing.M) {
 	testFiles = findTestFiles()
 
 	r := m.Run()
-	if err := os.Remove("./testdata/bindata.go"); err != nil {
-		panic(err)
-	}
-	if err := os.Remove("./testdata/readypacked/archive.tar"); err != nil {
-		panic(err)
-	}
+	os.Remove("./testdata/bindata.go")
+	os.Remove("./testdata/readypacked/archive.tar")
 
 	os.Exit(r)
 }

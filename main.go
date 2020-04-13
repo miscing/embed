@@ -32,22 +32,29 @@ func %s() []byte {
 )
 
 var (
-	packageName  string
-	variableName string
-	fileName     string
-	isTar        bool
+	packageName string
+	funcName    string
+	fileName    string
+	isTar       bool
 )
 
 func findPackageName() error {
 	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, "./main.go", nil, parser.PackageClauseOnly)
+	fMap, err := parser.ParseDir(fset, ".", nil, parser.PackageClauseOnly)
 	if err != nil {
 		return err
 	}
-	if f.Name.Name == "" {
-		return errors.New("current pwd package has empty name")
+	if len(fMap) != 1 {
+		return errors.New("expected only one package in current directory, found: " + string(len(fMap)))
 	}
-	packageName = f.Name.Name
+	var name string
+	for k, _ := range fMap {
+		if k == "" {
+			return errors.New("current pwd package has empty name")
+		}
+		name = k
+	}
+	packageName = name
 	return nil
 }
 
@@ -120,7 +127,7 @@ func makeSource(rawBuf *bytes.Buffer) *bytes.Buffer {
 		isTarStr = tarReminder
 	}
 
-	_, err := fmt.Fprintf(buf, preTemplate, packageName, isTarStr, variableName)
+	_, err := fmt.Fprintf(buf, preTemplate, packageName, isTarStr, funcName)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -146,18 +153,24 @@ func main() {
 		fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s [options] [path0] ... [pathi]\nGenerates a go source file for golang package in current directory containing all files found in given paths. Accessed through 'func bindata() []byte'. If multiple paths or path is a directory files will be packed into a tar archive.\n\nOptions:\n", os.Args[0])
 		flag.PrintDefaults()
 	}
-	flag.StringVar(&variableName, "vname", "bindata", "sets generated source files data holding variable name, def bindata")
+	flag.StringVar(&funcName, "name", "bindata", "sets generated source files data holding variable name, def bindata. Also sets fname to name + '.go'")
 	flag.StringVar(&packageName, "pname", "", "sets generated source files package name instead of parsing from current directory")
 	flag.StringVar(&fileName, "fname", "bindata.go", "sets generated source files name, default is bindata.go, use this to avoid overwritting")
 	flag.Parse()
-	paths := flag.Args()
 
 	if packageName == "" {
 		if err := findPackageName(); err != nil {
-			log.Panic(err)
+			log.Println("embed failed to find a package name to attach data to, quitting")
+			log.Fatal(err)
 		}
 	}
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == "name" {
+			fileName = f.Value.String() + ".go"
+		}
+	})
 
+	paths := flag.Args()
 	files := openFiles(paths)
 	tarBuf := makeTar(files)
 	sourceFileBuff := makeSource(tarBuf)
