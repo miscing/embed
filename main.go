@@ -115,7 +115,7 @@ func parsePath(p string) []*os.File {
 		files = append(files, f)
 		return nil
 	}); err != nil {
-		log.Panic(err)
+		log.Fatal(err)
 	}
 	return files
 }

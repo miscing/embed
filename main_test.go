@@ -198,7 +198,9 @@ func TestFname(t *testing.T) {
 		t.Error("fname file name not correct.\nExpected: ", outputName, "\nGot: ", fi.Name())
 	}
 
-	os.Remove("./testdata/" + outputName)
+	if err = os.Remove("./testdata/" + outputName); err != nil {
+		panic(err)
+	}
 }
 
 func TestName(t *testing.T) {
@@ -249,7 +251,9 @@ func TestName(t *testing.T) {
 		t.Error("content does not have a func called: ", outputName)
 	}
 
-	os.Remove("./testdata/" + outputName)
+	if err = os.Remove("./testdata/" + outputName + ".go"); err != nil {
+		panic(err)
+	}
 
 }
 
