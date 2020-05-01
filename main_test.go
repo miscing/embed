@@ -40,8 +40,8 @@ const (
 )
 
 var (
-	testFiles []*file
-	ignore    string = "// +build ignore\n"
+	ignore string = "// +build ignore\n"
+	sDir   bool   // flag for skipDir test
 )
 
 type file struct {
@@ -55,6 +55,11 @@ func findTestFiles() []*file {
 	if err := filepath.Walk(testDir, func(path string, info os.FileInfo, err error) error {
 		if testDir == path {
 			return nil
+		}
+		if sDir {
+			if info.IsDir() {
+				return nil
+			}
 		}
 		absFilePath, err := filepath.Abs(path)
 		if err != nil {
@@ -73,7 +78,7 @@ func findTestFiles() []*file {
 
 }
 
-func checkTestProgAgainst(t *testing.T) {
+func checkTestProgAgainst(t *testing.T, toTest []*file) {
 	var err error
 	cmd := exec.Command("go", "run", ".")
 	cmd.Dir, err = filepath.Abs("./testdata/")
@@ -89,7 +94,7 @@ func checkTestProgAgainst(t *testing.T) {
 
 	dec := json.NewDecoder(bytes.NewBuffer(output))
 	dec.DisallowUnknownFields()
-	var hol = make([]*file, 0, len(testFiles))
+	var hol = make([]*file, 0, len(toTest))
 	for dec.More() {
 		resF := new(file)
 		err := dec.Decode(resF)
@@ -100,20 +105,20 @@ func checkTestProgAgainst(t *testing.T) {
 		hol = append(hol, resF)
 	}
 
-	if len(hol) != len(testFiles) {
-		t.Error("number of packed files and test files did not match. Output had: ", len(hol), "test files ", len(testFiles))
+	if len(hol) != len(toTest) {
+		t.Error("number of packed files and test files did not match. Output had: ", len(hol), "test files ", len(toTest))
 		return
 	}
 
 Beg:
 	for _, o := range hol {
-		for _, tf := range testFiles {
+		for _, tf := range toTest {
 			if reflect.DeepEqual(tf, o) {
 				continue Beg
 			}
 		}
 		t.Error("failed to find a match in testfiles of: ", o.Name, "\n", o.Content)
-		for _, tf := range testFiles {
+		for _, tf := range toTest {
 			t.Log(*tf)
 		}
 		break
@@ -134,7 +139,7 @@ func TestSingleArg(t *testing.T) {
 		panic(err)
 	}
 
-	checkTestProgAgainst(t)
+	checkTestProgAgainst(t, findTestFiles())
 	os.Remove("./testdata/bindata.go")
 }
 
@@ -161,7 +166,7 @@ func TestMultiArg(t *testing.T) {
 		panic(err)
 	}
 
-	checkTestProgAgainst(t)
+	checkTestProgAgainst(t, findTestFiles())
 	os.Remove("./testdata/bindata.go")
 }
 
@@ -188,7 +193,7 @@ func TestOneTarInput(t *testing.T) {
 		panic(err)
 	}
 
-	checkTestProgAgainst(t)
+	checkTestProgAgainst(t, findTestFiles())
 	os.Remove("./testdata/bindata.go")
 }
 
@@ -278,10 +283,26 @@ func TestName(t *testing.T) {
 
 }
 
+func TestSkipDir(t *testing.T) {
+	var err error
+	cmd := exec.Command("go", "run", "..", "./target/")
+	cmd.Dir, err = filepath.Abs("./testdata/")
+	if err != nil {
+		panic(err)
+	}
+	err = cmd.Run()
+	if err != nil {
+		panic(err)
+	}
+
+	sDir = true
+	checkTestProgAgainst(t, findTestFiles())
+	sDir = false
+	os.Remove("./testdata/bindata.go")
+}
+
 func TestMain(m *testing.M) {
 	os.Remove("./testdata/bindata.go")
-
-	testFiles = findTestFiles()
 
 	r := m.Run()
 	os.Remove("./testdata/bindata.go")
