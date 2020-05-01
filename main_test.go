@@ -278,6 +278,9 @@ func TestName(t *testing.T) {
 
 }
 
+func TestDot(t *testing.T) {
+}
+
 func TestMain(m *testing.M) {
 	os.Remove("./testdata/bindata.go")
 

@@ -136,7 +136,7 @@ func parsePath(p string) []*os.File {
 		files = append(files, f)
 		return nil
 	}); err != nil {
-		log.Fatal(err)
+		log.Panic(err)
 	}
 	return files
 }
@@ -182,7 +182,7 @@ func main() {
 	if packageName == "" {
 		if err := findPackageName(); err != nil {
 			log.Println("embed failed to find a package name to attach data to, quitting")
-			log.Fatal(err)
+			log.Panic(err)
 		}
 	}
 	flag.Visit(func(f *flag.Flag) {
@@ -206,5 +206,4 @@ func main() {
 	}
 	fmt.Printf("created %s for package %s containing:\n", fileName, packageName)
 	fmt.Println(paths)
-
 }
