@@ -34,6 +34,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sync"
 )
 
 const (
@@ -80,10 +81,39 @@ func findPackageName() error {
 }
 
 func openFiles(paths []string) (files []*os.File) {
+	out := make(chan *[]*os.File)
+	var wg sync.WaitGroup
 	for _, p := range paths {
-		files = append(files, parsePath(p)...)
+		wg.Add(1)
+		go parsePath(p, out, &wg)
+	}
+	go func() {
+		wg.Wait()
+		close(out)
+	}()
+	for fs := range out {
+		files = append(files, *fs...)
 	}
 	return
+}
+
+func parsePath(p string, out chan *[]*os.File, wg *sync.WaitGroup) {
+	defer wg.Done()
+	var files []*os.File
+	if err := filepath.Walk(p, func(path string, info os.FileInfo, err error) error {
+		if path == p && info.IsDir() { //skip root if dir
+			return nil
+		}
+		f, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		files = append(files, f)
+		return nil
+	}); err != nil {
+		log.Panic(err)
+	}
+	out <- &files
 }
 
 func makeTar(files []*os.File) *bytes.Buffer {
@@ -121,24 +151,6 @@ func makeTar(files []*os.File) *bytes.Buffer {
 		log.Panic(err)
 	}
 	return buf
-}
-
-func parsePath(p string) []*os.File {
-	var files []*os.File
-	if err := filepath.Walk(p, func(path string, info os.FileInfo, err error) error {
-		if path == p && info.IsDir() { //skip root if dir
-			return nil
-		}
-		f, err := os.Open(path)
-		if err != nil {
-			return err
-		}
-		files = append(files, f)
-		return nil
-	}); err != nil {
-		log.Panic(err)
-	}
-	return files
 }
 
 func makeSource(rawBuf *bytes.Buffer) *bytes.Buffer {
