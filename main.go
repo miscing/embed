@@ -57,6 +57,7 @@ var (
 	packageName string
 	funcName    string
 	fileName    string
+	skipDir     bool
 	isTar       bool
 )
 
@@ -101,6 +102,11 @@ func parsePath(p string, out chan *[]*os.File, wg *sync.WaitGroup) {
 	defer wg.Done()
 	var files []*os.File
 	if err := filepath.Walk(p, func(path string, info os.FileInfo, err error) error {
+		if skipDir {
+			if info.IsDir() {
+				return nil
+			}
+		}
 		if path == p && info.IsDir() { //skip root if dir
 			return nil
 		}
@@ -189,6 +195,7 @@ func main() {
 	flag.StringVar(&funcName, "name", "bindata", "sets generated source files data holding variable name, def bindata. Also sets fname to name + '.go'")
 	flag.StringVar(&packageName, "pname", "", "sets generated source files package name instead of parsing from current directory")
 	flag.StringVar(&fileName, "fname", "bindata.go", "sets generated source files name, default is bindata.go, use this to avoid overwritting")
+	flag.BoolVar(&skipDir, "skipdir", false, "skips directories from outputted tar")
 	flag.Parse()
 
 	if packageName == "" {
