@@ -71,7 +71,7 @@ func findPackageName() error {
 		return errors.New("expected only one package in current directory, found: " + string(len(fMap)))
 	}
 	var name string
-	for k, _ := range fMap {
+	for k := range fMap {
 		if k == "" {
 			return errors.New("current pwd package has empty name")
 		}
