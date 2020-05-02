@@ -27,6 +27,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"io"
 	"io/ioutil"
 	"os"
@@ -51,7 +54,7 @@ type file struct {
 	Content string
 }
 
-func TestMakeTar(t *testing.T) {
+func walkTest() []*os.File {
 	var files []*os.File
 	if err := filepath.Walk(testDir, func(path string, info os.FileInfo, err error) error {
 		if testDir == path {
@@ -66,6 +69,11 @@ func TestMakeTar(t *testing.T) {
 	}); err != nil {
 		panic(err)
 	}
+	return files
+}
+
+func TestMakeTar(t *testing.T) {
+	files := walkTest()
 	for _, f := range files {
 		t.Log("Files in " + testDir)
 		t.Log(f.Name())
@@ -91,6 +99,22 @@ func TestMakeTar(t *testing.T) {
 			t.Log(h.Name)
 			t.Fatal("function output had file name not found in testdata/target")
 		}
+	}
+}
+
+func TestMakeSource(t *testing.T) {
+	files := walkTest()
+	out := makeTar(files)
+	payload := makeSource(out, "main", "bindata")
+	// s := bufio.NewScanner(payload)
+	// for s.Scan() {
+	// 	t.Log(s.Text())
+	// }
+	f, err := parser.ParseFile(token.NewFileSet(), "", payload, 0)
+	if err != nil {
+		ast.Print(token.NewFileSet(), f)
+		t.Log(err)
+		t.Fatal("function output not valid go code")
 	}
 }
 
