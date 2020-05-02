@@ -22,10 +22,12 @@
 package main
 
 import (
+	"archive/tar"
 	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -47,6 +49,49 @@ var (
 type file struct {
 	Name    string
 	Content string
+}
+
+func TestMakeTar(t *testing.T) {
+	var files []*os.File
+	if err := filepath.Walk(testDir, func(path string, info os.FileInfo, err error) error {
+		if testDir == path {
+			return nil
+		}
+		f, err := os.Open(path)
+		if err != nil {
+			panic(err)
+		}
+		files = append(files, f)
+		return nil
+	}); err != nil {
+		panic(err)
+	}
+	for _, f := range files {
+		t.Log("Files in " + testDir)
+		t.Log(f.Name())
+	}
+	out := makeTar(files)
+	r := tar.NewReader(out)
+	for {
+		h, err := r.Next()
+		if err == io.EOF {
+			return
+		} else if err != nil {
+			panic(err)
+		}
+		var mark bool
+		for _, f := range files {
+			if filepath.Base(f.Name()) == h.Name {
+				mark = true
+				break
+			}
+		}
+		if !mark {
+			t.Log("File not found")
+			t.Log(h.Name)
+			t.Fatal("function output had file name not found in testdata/target")
+		}
+	}
 }
 
 func findTestFiles() []*file {
