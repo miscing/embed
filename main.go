@@ -190,7 +190,7 @@ func main() {
 		flag.PrintDefaults()
 	}
 	funcName := flag.String("name", "bindata", "sets generated source files data holding variable name, def bindata. Also sets fname to name + '.go'")
-	packageName := flag.String("pname", "", "sets generated source files package name instead of parsing from current directory")
+	packageName := flag.String("pname", "", "sets generated source files package name instead of parsing from current directories package")
 	fileName := flag.String("fname", "bindata.go", "sets generated source files name, default is bindata.go, use this to avoid overwritting")
 	flag.BoolVar(&skipDir, "skipdir", false, "directories are not added to outputed tar archive")
 	flag.Parse()
