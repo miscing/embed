@@ -35,6 +35,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"unicode/utf8"
 )
 
 const (
@@ -53,10 +54,7 @@ func %s() []byte {
 }`
 )
 
-var (
-	skipDir bool
-	isTar   bool
-)
+var ()
 
 func findPackageName() (name string, err error) {
 	fset := token.NewFileSet()
@@ -78,12 +76,12 @@ func findPackageName() (name string, err error) {
 	return name, nil
 }
 
-func openFiles(paths []string) (files []*os.File) {
+func (m *Maker) OpenFiles(paths []string) (files []*os.File) {
 	out := make(chan *[]*os.File)
 	var wg sync.WaitGroup
 	for _, p := range paths {
 		wg.Add(1)
-		go parsePath(p, out, &wg)
+		go m.parsePath(p, out, &wg)
 	}
 	go func() {
 		wg.Wait()
@@ -95,17 +93,37 @@ func openFiles(paths []string) (files []*os.File) {
 	return
 }
 
-func parsePath(p string, out chan *[]*os.File, wg *sync.WaitGroup) {
+type Maker struct {
+	SkipDir     bool
+	ParseHidden bool
+	Recurssive  bool
+	isTar       bool
+}
+
+func (m *Maker) parsePath(p string, out chan *[]*os.File, wg *sync.WaitGroup) {
 	defer wg.Done()
 	var files []*os.File
 	if err := filepath.Walk(p, func(path string, info os.FileInfo, err error) error {
-		if skipDir {
-			if info.IsDir() {
+		if path == p && info.IsDir() { //skip root if dir
+			return nil
+		}
+		if !m.ParseHidden {
+			if r, _ := utf8.DecodeRuneInString(info.Name()); string(r) == "." {
+				if info.IsDir() {
+					return filepath.SkipDir
+				}
 				return nil
 			}
 		}
-		if path == p && info.IsDir() { //skip root if dir
-			return nil
+		if !m.Recurssive {
+			if info.IsDir() {
+				return filepath.SkipDir
+			}
+		}
+		if m.SkipDir {
+			if info.IsDir() {
+				return nil
+			}
 		}
 		f, err := os.Open(path)
 		if err != nil {
@@ -119,7 +137,7 @@ func parsePath(p string, out chan *[]*os.File, wg *sync.WaitGroup) {
 	out <- &files
 }
 
-func makeTar(files []*os.File) *bytes.Buffer {
+func (m *Maker) MakeTar(files []*os.File) *bytes.Buffer {
 	buf := new(bytes.Buffer)
 	if len(files) == 1 {
 		log.Println("only 1 file found, skipping tar archiving")
@@ -130,7 +148,7 @@ func makeTar(files []*os.File) *bytes.Buffer {
 		}
 		return buf
 	}
-	isTar = true
+	m.isTar = true
 
 	tw := tar.NewWriter(buf)
 	for _, f := range files {
@@ -145,8 +163,10 @@ func makeTar(files []*os.File) *bytes.Buffer {
 		if err := tw.WriteHeader(head); err != nil {
 			log.Panic(err)
 		}
-		if _, err := io.Copy(tw, f); err != nil {
-			log.Panic(err)
+		if !fi.IsDir() {
+			if _, err := io.Copy(tw, f); err != nil {
+				log.Panic(err)
+			}
 		}
 		f.Close()
 	}
@@ -156,10 +176,10 @@ func makeTar(files []*os.File) *bytes.Buffer {
 	return buf
 }
 
-func makeSource(rawBuf *bytes.Buffer, packageName string, funcName string) *bytes.Buffer {
+func (m *Maker) MakeSource(rawBuf *bytes.Buffer, packageName string, funcName string) *bytes.Buffer {
 	buf := new(bytes.Buffer)
 	isTarStr := ""
-	if isTar {
+	if m.isTar {
 		isTarStr = tarReminder
 	}
 
@@ -184,6 +204,7 @@ func makeSource(rawBuf *bytes.Buffer, packageName string, funcName string) *byte
 }
 
 func main() {
+	m := new(Maker)
 	// set flags:
 	flag.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s [options] [path0] ... [pathi]\nGenerates a go source file for golang package in current directory containing all files found in given paths. Accessed through 'func bindata() []byte'. If multiple paths or path is a directory files will be packed into a tar archive.\n\nOptions:\n", os.Args[0])
@@ -192,7 +213,9 @@ func main() {
 	funcName := flag.String("name", "bindata", "sets generated source files data holding variable name, def bindata. Also sets fname to name + '.go'")
 	packageName := flag.String("pname", "", "sets generated source files package name instead of parsing from current directories package")
 	fileName := flag.String("fname", "bindata.go", "sets generated source files name, default is bindata.go, use this to avoid overwritting")
-	flag.BoolVar(&skipDir, "skipdir", false, "directories are not added to outputed tar archive")
+	flag.BoolVar(&m.SkipDir, "skipdir", false, "directories are not added to outputed tar archive")
+	flag.BoolVar(&m.ParseHidden, "phidden", false, "also encode hidden files.")
+	flag.BoolVar(&m.Recurssive, "r", false, "walk recurssively path")
 	flag.Parse()
 
 	if *packageName == "" {
@@ -210,14 +233,14 @@ func main() {
 	})
 
 	paths := flag.Args()
-	files := openFiles(paths)
-	tarBuf := makeTar(files)
-	sourceFileBuff := makeSource(tarBuf, *packageName, *funcName)
+	files := m.OpenFiles(paths)
+	tarBuf := m.MakeTar(files)
+	sourceFileBuff := m.MakeSource(tarBuf, *packageName, *funcName)
 	file, err := os.OpenFile(*fileName, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0664)
-	defer file.Close()
 	if err != nil {
 		log.Panic(err)
 	}
+	defer file.Close()
 	_, err = sourceFileBuff.WriteTo(file)
 	if err != nil {
 		log.Panic(err)
